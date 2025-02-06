@@ -22,7 +22,7 @@ EVALUATION = {
 TRAIN_CONFIG = {
     'agent_trainer': {'type': SACTrainer,
                       'hidden_layer_size_q': 512, 'hidden_layers_q': 1, 'cnn_filters_q': 32, 'cnn_layers_q': 2,
-                      'hidden_layer_size_actor': 32, 'hidden_layers_actor': 1, 'attention_heads_actor': 4, 'transformer_ff_size_actor': 64,
+                      'hidden_layer_size_actor': 32, 'hidden_layers_actor': 4, 'attention_heads_actor': 4, 'transformer_ff_size_actor': 64,
                       'model_type_q': 'cnn', 'model_type_actor': 'transformer'},
     'number_steps': 900000,
     'device': 'auto',
@@ -39,7 +39,7 @@ VOLTAGE_CTRL = {
                           'path_to_net': "./data/1-LV-rural3-minQmaxP-augmented-curtail_cleaned.p"},
                           #'path_to_net': "./data/1-LV-rural1-upper-augmented-OPF-cleaned.p"},
     'evaluator': {'type': VoltageControlEvaluator},
-    'controller': {'type': CentralizedDroopController},
+    'controller': {'type': CentralizedDroopController, 'p_u_thresholds': (1.045, 1.055), 'q_u_thresholds': (0.97, 0.99, 1.01, 1.03)},
     'observation_manager': {'type': VoltageControlObservationManager, 'ctrl_action_included': False}
 }
 

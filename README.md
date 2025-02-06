@@ -13,7 +13,7 @@ conda env create --file environment.yml
 conda activate voltage-control-env
 ````
 
-For the experiments we use a newly developed voltage control environment that is published seperately and can also be found on GitHub. When installing the conda environment the environment should automatically be installed as a package.
+For the experiments we use a newly developed voltage control environment that is published seperately and can also be found on [GitHub](https://github.com/RWTH-IAEW/voltage-control-env). When installing the conda environment the environment should automatically be installed as a package.
 
 ## Usage
 The training for RL and Residual RL can be started by executing the ```main.py``` script in the 
@@ -21,7 +21,7 @@ The training for RL and Residual RL can be started by executing the ```main.py``
 
 ````
 cd src
-python main.py -algo "residual" -lam-res 1.5 -qnet-arch "cnn" -ctrl-inc
+python main.py -algo "residual" -lam-res 1.5 -qnet-arc "cnn" -ctrl-inc
 ````
 
 For information about the arguments you can pass to the script, you can simply run

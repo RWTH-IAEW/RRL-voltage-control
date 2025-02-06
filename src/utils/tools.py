@@ -152,6 +152,81 @@ class FixedWeightScheduler(WeightScheduler):
     def adapt_weight(self, uncertainty, step, force=False):
         pass
 
+class BernoulliMaskReplayBuffer(ReplayBuffer):
+
+    def __init__(
+            self,
+            buffer_size: int,
+            observation_space: spaces.Space,
+            action_space: spaces.Space,
+            mask_size : int,
+            p_masking: float,
+            device: Union[torch.device, str] = "cpu",
+            n_envs: int = 1,
+            optimize_memory_usage: bool = False,
+            handle_timeout_termination: bool = True,
+    ):
+        super(BernoulliMaskReplayBuffer, self).__init__(buffer_size=buffer_size,
+                                           observation_space=observation_space,
+                                           action_space=action_space,
+                                           device=device,
+                                           n_envs=n_envs,
+                                           optimize_memory_usage=optimize_memory_usage,
+                                           handle_timeout_termination=handle_timeout_termination)
+
+        self.mask_size = mask_size
+        self.bernoulli_mask = np.zeros((self.buffer_size, self.n_envs, self.mask_size), dtype=np.float32)
+
+        self.p_masking = p_masking
+
+    def add(
+            self,
+            obs: np.ndarray,
+            next_obs: np.ndarray,
+            action: np.ndarray,
+            reward: np.ndarray,
+            done: np.ndarray,
+            infos: List[Dict[str, Any]],
+    ) -> None:
+
+        super(BernoulliMaskReplayBuffer, self).add(obs, next_obs, action, reward, done, infos)
+
+        # sample bernoulli mask
+        mask = np.random.choice([1., 0.], p=[self.p_masking, 1-self.p_masking], size=(self.n_envs, self.mask_size)).astype(np.float32)
+        self.bernoulli_mask[self.pos-1] = mask
+
+    def sample(self, batch_size: int, env: Optional[VecNormalize] = None) -> BernoulliMaskReplayBufferSamples:
+        if not self.optimize_memory_usage:
+            return super(ReplayBuffer, self).sample(batch_size=batch_size, env=env)
+            # Do not sample the element with index `self.pos` as the transitions is invalid
+            # (we use only one array to store `obs` and `next_obs`)
+        if self.full:
+            batch_inds = (np.random.randint(1, self.buffer_size, size=batch_size) + self.pos) % self.buffer_size
+        else:
+            batch_inds = np.random.randint(0, self.pos, size=batch_size)
+
+
+        return self._get_samples(batch_inds, env)
+
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> BernoulliMaskReplayBufferSamples:
+        if self.optimize_memory_usage:
+            next_obs = self._normalize_obs(self.observations[(batch_inds + 1) % self.buffer_size, 0, :], env)
+        else:
+            next_obs = self._normalize_obs(self.next_observations[batch_inds, 0, :], env)
+
+        data = (
+            self._normalize_obs(self.observations[batch_inds, 0, :], env),
+            self.actions[batch_inds, 0, :],
+            next_obs,
+            # Only use dones that are not due to timeouts
+            # deactivated by default (timeouts is initialized as an array of False)
+            self.dones[batch_inds] * (1 - self.timeouts[batch_inds]),
+            self._normalize_reward(self.rewards[batch_inds], env),
+            self.bernoulli_mask[batch_inds, 0, :]
+
+        )
+        return BernoulliMaskReplayBufferSamples(*tuple(map(self.to_torch, data)))
+
 
 
 

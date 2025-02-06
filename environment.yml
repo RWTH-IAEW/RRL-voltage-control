@@ -1,4 +1,4 @@
-name: voltage-control-env
+name: rrl-voltage-control
 channels:
   - pytorch
   - defaults

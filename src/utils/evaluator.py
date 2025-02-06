@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from custom_envs.observation_manager import ObservationManager, Algorithm
-from utils.tools import inject_weight_into_state, inject_ctrl_action_into_state, WeightScheduler, UncertaintyEvaluator
+from utils.tools import inject_weight_into_state, inject_ctrl_action_into_state, WeightScheduler
 
 class Evaluator(ABC):
 
@@ -109,68 +109,6 @@ class Evaluator(ABC):
                 state = self._convert_state_for_agent(state, agent_type)
                 total_reward[i] += reward
             done = False
-        print(total_reward)
-        return np.mean(total_reward)
-
-    def evaluate_weight_adapted_agent_on_start_states(self, mixed_agent, weight_scheduler: WeightScheduler,
-                                                      uncertainty_evaluator: UncertaintyEvaluator):
-
-        done = False
-        # env = gym.make(env_id)
-        total_reward = [0] * len(self.eval_start_states)
-        for i in range(len(self.eval_start_states)):
-            state = self.init_start_state(i)
-            eval_weight_scheduler = copy.deepcopy(weight_scheduler)
-            eval_weight_scheduler.episode_weight_reset()
-            weight = eval_weight_scheduler.get_weight()
-            if self.obs_man.augmented_env:
-                state = inject_weight_into_state(state, weight)
-            state = torch.tensor(state, device=self.device, dtype=torch.float32).unsqueeze(0)
-            while not done:
-                with torch.no_grad():
-                    # action_pi = mixed_agent.get_rl_action(state, greedy=self.greedy_eval)
-                    # action_c = mixed_agent.get_control_action(state)
-                    action, action_pi, action_c = mixed_agent.get_action(state, greedy=self.greedy_eval, ret_sep_actions=True, weight=weight)
-                #action = action_pi * weight + action_c * (1-weight)
-                action = action.squeeze().cpu().numpy()
-                action = action.clip(self.single_eval_env.action_space.low.reshape(action.shape),
-                                     self.single_eval_env.action_space.high.reshape(action.shape))
-                next_state, reward, terminated, truncated, _ = self.single_eval_env.step(action)
-                done = terminated or truncated
-
-                # compute the next uncertainty
-                unc_next_state = next_state
-                if self.obs_man.ctrl_action_included:
-                        # for uncertainty calculation the state needs to include the controller action
-                        state = torch.cat([state[:, :-1], action_c, state[:, -1].view(-1, 1)], dim=-1)
-
-                        next_state_t = torch.tensor(next_state, dtype=torch.float32).to(self.device)
-
-                        # Evaluate control action
-                        with torch.no_grad():
-                            actions_c = mixed_agent.get_control_action(next_state_t)
-                            actions_c = actions_c.detach().cpu().numpy().clip(
-                                self.single_eval_env.action_space.low.reshape(action.shape),
-                                self.single_eval_env.action_space.high.reshape(action.shape))
-                        unc_next_state = inject_ctrl_action_into_state(unc_next_state, actions_c)
-
-                if self.obs_man.augmented_env:
-                    unc_next_state = inject_weight_into_state(unc_next_state, weight)
-
-                unc_next_state = unc_next_state[np.newaxis]
-                uncertainty = uncertainty_evaluator.get_uncertainty(self.obs_man.get_rl_state(state),
-                                                                    action_pi,
-                                                                    self.obs_man.get_rl_state(unc_next_state),
-                                                                    reward)
-                eval_weight_scheduler.adapt_weight(uncertainty, 0, force=True)
-                weight = eval_weight_scheduler.get_weight()
-                if self.obs_man.augmented_env:
-                    next_state = inject_weight_into_state(next_state, weight)
-                state = torch.tensor(next_state, device=self.device, dtype=torch.float32)
-                state = state.unsqueeze(0)
-                total_reward[i] += reward
-            done = False
-
         return np.mean(total_reward)
 
     @DeprecationWarning
