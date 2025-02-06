@@ -1,0 +1,21 @@
+name: voltage-control-env
+channels:
+  - pytorch
+  - defaults
+  - anaconda
+  - conda-forge
+dependencies:
+  - python=3.11.9
+  - pytorch=2.1.1
+  - numpy>=1.26.4
+  - pip
+  - pip:
+      - git+https://github.com/RWTH-IAEW/voltage-control-env.git@v1.2.2#egg=voltage-control-env
+      - easydict==1.13
+      - gymnasium==0.28.1
+      - stable-baselines3==2.3.2
+      - pandapower==2.14.11
+      - simbench==1.5.3
+      - wandb==0.18.2
+      - shapely==2.0.6
+      - numba==0.60.0
